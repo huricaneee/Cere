@@ -44,7 +44,7 @@ def load_stimulus_features(root_data_dir, modality, selected_episodes=None):
     """
     features = {}
 
-    h5_path = os.path.join(root_data_dir, 'features', 'features_Imagebind.h5')
+    h5_path = os.path.join(root_data_dir, 'features', 'features_Imagebind_6season.h5')
 
     with h5py.File(h5_path, 'r') as f:
         available_modalities = list(f.keys())

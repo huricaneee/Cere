@@ -15,8 +15,23 @@ stride = 5
 batch_size = 128
 
 # Train/val split
-train_episodes = [f"s01e{episode:02d}{half}" for episode in range(1, 25) for half in ['a', 'b']]
-val_episodes = [f"s02e{episode:02d}{half}" for episode in range(1, 13) for half in ['a', 'b']]
+# train_episodes = [f"s01e{episode:02d}{half}" for episode in range(1, 25) for half in ['a', 'b']]
+# val_episodes = [f"s02e{episode:02d}{half}" for episode in range(1, 13) for half in ['a', 'b']]
+
+# Train on seasons 1–5
+train_episodes = [
+    f"s0{season}e{episode:02d}{half}"
+    for season in range(1, 6)         # Seasons 1 to 5
+    for episode in range(1, 25)       # 24 episodes per season
+    for half in ['a', 'b']            # First and second halves
+]
+
+# Validate on season 6
+val_episodes = [
+    f"s06e{episode:02d}{half}"
+    for episode in range(1, 25)       # 24 episodes in season 6
+    for half in ['a', 'b']
+]
 
 # Load data
 train_loader = prepare_and_save_aligned_data(
@@ -69,13 +84,24 @@ wandb.init(
     config=config.__dict__
 )
 
+print("Model Configuration:")
+print(config)
+
 # Training loop
 for epoch in range(config.num_epochs):
     train_one_epoch(model, train_loader, optimizer, config.device, epoch)
     evaluate(model, val_loader, config.device, epoch)
 
     checkpoint_path = f"/content/checkpoints/epoch_{epoch+1}.pt"
-    torch.save(model.state_dict(), checkpoint_path)
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'config': config.__dict__
+    }
+
+    os.makedirs(os.path.dirname(checkpoint_path), exist_ok=True)
+    torch.save(checkpoint, checkpoint_path)
 
     # upload to WandB
     wandb.save(checkpoint_path)  

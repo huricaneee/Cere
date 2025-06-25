@@ -14,15 +14,15 @@ class Config:
         output_dim=1000,
         d_model=1000,
         nhead=1,
-        nhid=4,
+        nhid=10,
         nlayers=1,
         dropout=0,
         batch_size=128,
-        lr=1e-4,
-        num_epochs=5,
+        lr=5e-5,
+        num_epochs=10,
         device=None,
-        window_size = 50,
-        stride = 10
+        window_size = 10,
+        stride = 5
     ):
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -35,8 +35,12 @@ class Config:
         self.lr = lr
         self.num_epochs = num_epochs
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.window_size = window_size,
+        self.window_size = window_size
         self.stride = stride
+
+    def __repr__(self):
+      return f"Config({', '.join(f'{k}={v}' for k, v in self.__dict__.items())})"
+
 
 # https://github.com/pytorch/examples/blob/main/word_language_model/model.py
 class PositionalEncoding(nn.Module):
