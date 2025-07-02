@@ -117,7 +117,7 @@ def load_fmri(root_data_dir, subject, friends_episodes=None):
 #     return aligned_features, aligned_fmri
 
 ## add features and trim fMRI data
-def trim_and_add_features(features_dict, fmri_dict, excluded_trs_start=0, excluded_trs_end=0, hrf_delay=0):
+def trim_and_concatenate_features(features_dict, fmri_dict, excluded_trs_start=0, excluded_trs_end=0, hrf_delay=0):
     aligned_features = []
     aligned_fmri = []
     all_episodes = set(fmri_dict.keys())
