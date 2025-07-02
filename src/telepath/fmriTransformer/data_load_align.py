@@ -78,8 +78,46 @@ def load_fmri(root_data_dir, subject, friends_episodes=None):
 
     return fmri
 
+# # concatenate and trim features and fMRI data
+# def trim_and_concatenate_features(features_dict, fmri_dict, excluded_trs_start=0, excluded_trs_end=0, hrf_delay=0):
+#     aligned_features = []
+#     aligned_fmri = []
+#     all_episodes = set(fmri_dict.keys())
+#     for mod in features_dict:
+#         all_episodes &= set(features_dict[mod].keys())
 
-def trim_and_concatenate_features(features_dict, fmri_dict, excluded_trs_start=0, excluded_trs_end=0, hrf_delay=0):
+#     for ep in sorted(all_episodes):
+#         fmri = fmri_dict[ep]
+#         if len(fmri) <= excluded_trs_start + excluded_trs_end + hrf_delay:
+#             continue
+#         fmri_trimmed = fmri[excluded_trs_start : -excluded_trs_end or None]
+#         fmri_trimmed = fmri_trimmed[:len(fmri_trimmed) - hrf_delay]
+
+#         modality_features = []
+#         min_len = len(fmri_trimmed)
+#         valid = True
+
+#         for mod in sorted(features_dict.keys()):
+#             feat = features_dict[mod][ep]
+#             if len(feat) <= excluded_trs_start + excluded_trs_end + hrf_delay:
+#                 valid = False
+#                 break
+#             feat_trimmed = feat[excluded_trs_start : -excluded_trs_end or None]
+#             feat_trimmed = feat_trimmed[hrf_delay:]
+#             min_len = min(min_len, len(feat_trimmed))
+#             modality_features.append(feat_trimmed)
+
+#         if not valid:
+#             continue
+
+#         feat_concat = np.concatenate([f[:min_len] for f in modality_features], axis=1)
+#         aligned_features.append(feat_concat)
+#         aligned_fmri.append(fmri_trimmed[:min_len])
+
+#     return aligned_features, aligned_fmri
+
+## add features and trim fMRI data
+def trim_and_add_features(features_dict, fmri_dict, excluded_trs_start=0, excluded_trs_end=0, hrf_delay=0):
     aligned_features = []
     aligned_fmri = []
     all_episodes = set(fmri_dict.keys())
@@ -110,11 +148,13 @@ def trim_and_concatenate_features(features_dict, fmri_dict, excluded_trs_start=0
         if not valid:
             continue
 
-        feat_concat = np.concatenate([f[:min_len] for f in modality_features], axis=1)
-        aligned_features.append(feat_concat)
+        # Ensure all features are of shape [min_len, D] and then sum them
+        feat_sum = np.sum([f[:min_len] for f in modality_features], axis=0)
+        aligned_features.append(feat_sum)
         aligned_fmri.append(fmri_trimmed[:min_len])
 
     return aligned_features, aligned_fmri
+
 
 
 def segment_sequence(seq, window_size, stride):
