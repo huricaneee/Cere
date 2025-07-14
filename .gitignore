@@ -24,3 +24,11 @@ brain-env/
 scripts/strass-branch/secrets-env-do.py/
 #data/
 *.egg-info/
+yujie-env/
+/data
+/logs
+/scripts/wandb/
+/checkpoints
+/wandb
+/aligned
+/aligned_data_all_sub

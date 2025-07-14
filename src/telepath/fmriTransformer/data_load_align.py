@@ -3,80 +3,58 @@ import math
 import numpy as np
 import h5py
 import torch
+import pickle
 from torch.utils.data import DataLoader, Dataset
 from scipy.stats import pearsonr
 
 
 # def load_stimulus_features(root_data_dir, modality, selected_episodes=None):
+#     """
+#     Load stimulus features from a structured HDF5 file.
+
+#     Args:
+#         h5_path (str): Path to features_Imagebind.h5
+#         modality (str): One of 'vision', 'audio', 'text', or 'all'
+#         selected_episodes (list[str] or None): Optional filter on episode keys
+
+#     Returns:
+#         dict: {modality: {episode: np.ndarray of shape [T, D]}}
+#     """
 #     features = {}
 
-#     def load_filtered_feature_file(path, selected):
-#         all_feats = np.load(path, allow_pickle=True).item()
-#         if selected is None:
-#             return all_feats
-#         return {k: v for k, v in all_feats.items() if k in selected}
+#     h5_path = os.path.join(root_data_dir, 'features', 'features_Imagebind_6season.h5')
 
-#     if modality in ['visual', 'all']:
-#         path = os.path.join(root_data_dir, 'stimulus_features', 'pca', 'friends_movie10', 'visual', 'features_train.npy')
-#         features['visual'] = load_filtered_feature_file(path, selected_episodes)
+#     with h5py.File(h5_path, 'r') as f:
+#         available_modalities = list(f.keys())
 
-#     if modality in ['audio', 'all']:
-#         path = os.path.join(root_data_dir, 'stimulus_features', 'pca', 'friends_movie10', 'audio', 'features_train.npy')
-#         features['audio'] = load_filtered_feature_file(path, selected_episodes)
+#         if modality == "all":
+#             modalities = available_modalities
+#         elif modality in available_modalities:
+#             modalities = [modality]
+#         else:
+#             raise ValueError(f"Modality '{modality}' not found in file. Available: {available_modalities}")
 
-#     if modality in ['language', 'all']:
-#         path = os.path.join(root_data_dir, 'stimulus_features', 'pca', 'friends_movie10', 'language', 'features_train.npy')
-#         features['language'] = load_filtered_feature_file(path, selected_episodes)
+#         for mod in modalities:
+#             features[mod] = {}
+#             for ep_key in f[mod].keys():
+#                 if selected_episodes is None or ep_key in selected_episodes:
+#                     features[mod][ep_key] = f[f"{mod}/{ep_key}"][:]
 
 #     return features
 
-def load_stimulus_features(root_data_dir, modality, selected_episodes=None):
-    """
-    Load stimulus features from a structured HDF5 file.
 
-    Args:
-        h5_path (str): Path to features_Imagebind.h5
-        modality (str): One of 'vision', 'audio', 'text', or 'all'
-        selected_episodes (list[str] or None): Optional filter on episode keys
+# def load_fmri(root_data_dir, subject, friends_episodes=None):
+#     fmri = {}
+#     friends_filename = f'sub-0{subject}_task-friends_space-MNI152NLin2009cAsym_atlas-Schaefer18_parcel-1000Par7Net_desc-s123456_bold.h5'
+#     friends_path = os.path.join(root_data_dir, 'fmri', friends_filename)
 
-    Returns:
-        dict: {modality: {episode: np.ndarray of shape [T, D]}}
-    """
-    features = {}
+#     with h5py.File(friends_path, 'r') as f:
+#         for key, val in f.items():
+#             clip = str(key[13:])
+#             if friends_episodes is None or clip in friends_episodes:
+#                 fmri[clip] = val[:].astype(np.float32)
 
-    h5_path = os.path.join(root_data_dir, 'features', 'features_Imagebind_6season.h5')
-
-    with h5py.File(h5_path, 'r') as f:
-        available_modalities = list(f.keys())
-
-        if modality == "all":
-            modalities = available_modalities
-        elif modality in available_modalities:
-            modalities = [modality]
-        else:
-            raise ValueError(f"Modality '{modality}' not found in file. Available: {available_modalities}")
-
-        for mod in modalities:
-            features[mod] = {}
-            for ep_key in f[mod].keys():
-                if selected_episodes is None or ep_key in selected_episodes:
-                    features[mod][ep_key] = f[f"{mod}/{ep_key}"][:]
-
-    return features
-
-
-def load_fmri(root_data_dir, subject, friends_episodes=None):
-    fmri = {}
-    friends_filename = f'sub-0{subject}_task-friends_space-MNI152NLin2009cAsym_atlas-Schaefer18_parcel-1000Par7Net_desc-s123456_bold.h5'
-    friends_path = os.path.join(root_data_dir, 'fmri', friends_filename)
-
-    with h5py.File(friends_path, 'r') as f:
-        for key, val in f.items():
-            clip = str(key[13:])
-            if friends_episodes is None or clip in friends_episodes:
-                fmri[clip] = val[:].astype(np.float32)
-
-    return fmri
+#     return fmri
 
 # # concatenate and trim features and fMRI data
 # def trim_and_concatenate_features(features_dict, fmri_dict, excluded_trs_start=0, excluded_trs_end=0, hrf_delay=0):
@@ -115,6 +93,86 @@ def load_fmri(root_data_dir, subject, friends_episodes=None):
 #         aligned_fmri.append(fmri_trimmed[:min_len])
 
 #     return aligned_features, aligned_fmri
+
+
+
+# -------------------------------------------------------
+# Helper: match either full episode IDs or prefix strings
+# -------------------------------------------------------
+def _match_episode(ep_key: str, selectors):
+    """Return True if ep_key matches any selector (full ID or prefix)."""
+    if selectors is None:
+        return True
+    for sel in selectors:
+        if ep_key.startswith(sel):     # prefix match
+            return True
+    return False
+
+
+# -------------------------------------------------------
+# Updated stimulus-feature loader
+# -------------------------------------------------------
+def load_stimulus_features(root_data_dir, modality="all", selected_episodes=None):
+    """
+    Load ImageBind (or other) stimulus features.
+
+    Args
+    ----
+    root_data_dir : str
+    modality      : "vision" | "audio" | "text" | "all"
+    selected_episodes : None | list[str] | tuple[str]
+        Each string can be a *full* episode key ("s04e01a") or a *prefix*
+        ("s04", "s05e").  If None, keep everything.
+    """
+    features = {}
+    h5_path = os.path.join(root_data_dir, "features",
+                           "features_Imagebind_6season.h5")
+
+    with h5py.File(h5_path, "r") as f:
+        available_modalities = list(f.keys())
+
+        if modality == "all":
+            modalities = available_modalities
+        elif modality in available_modalities:
+            modalities = [modality]
+        else:
+            raise ValueError(
+                f"Modality '{modality}' not found. "
+                f"Available: {available_modalities}"
+            )
+
+        for mod in modalities:
+            features[mod] = {}
+            for ep_key in f[mod]:
+                if _match_episode(ep_key, selected_episodes):
+                    features[mod][ep_key] = f[f"{mod}/{ep_key}"][:]
+
+    return features
+
+
+# -------------------------------------------------------
+# Updated fMRI loader
+# -------------------------------------------------------
+def load_fmri(root_data_dir, subject, friends_episodes=None):
+    """
+    Load Schaefer-1000 parcel fMRI for one subject.
+
+    friends_episodes : None | list[str] | tuple[str]
+        Same semantics as selected_episodes above (full IDs or prefixes).
+    """
+    fmri = {}
+    fname = (f"sub-0{subject}_task-friends_space-MNI152NLin2009cAsym_"
+             "atlas-Schaefer18_parcel-1000Par7Net_desc-s123456_bold.h5")
+    fpath = os.path.join(root_data_dir, "fmri", fname)
+
+    with h5py.File(fpath, "r") as f:
+        for key, val in f.items():
+            ep_key = str(key[13:])          # strip '/friends_' prefix
+            if _match_episode(ep_key, friends_episodes):
+                fmri[ep_key] = val[:].astype(np.float32)
+
+    return fmri
+
 
 ## add features and trim fMRI data
 def trim_and_concatenate_features(features_dict, fmri_dict, excluded_trs_start=0, excluded_trs_end=0, hrf_delay=0):
@@ -233,3 +291,77 @@ def collate_fn_no_pad(batch):
     return stim_batch, fmri_batch
 
 
+
+class MultiSubjectDataset(Dataset):
+    def __init__(self, datasets):
+        """
+        datasets: list of SlidingWindowFMRIDataset from each subject
+        """
+        self.samples = []
+        for dataset in datasets:
+            self.samples.extend(dataset.samples)  # flat list of (stim, fmri)
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        return self.samples[idx]
+
+
+def build_combined_dataloader(
+    root_data_dir,
+    subjects,
+    window_size,
+    stride,
+    batch_size,
+    cache_dir,
+    excluded_trs_start=0,
+    excluded_trs_end=0,
+    hrf_delay=3,
+    selected_episodes=None,
+    shuffle=True
+):
+    datasets = []
+
+    feats_all = load_stimulus_features(root_data_dir, modality="all", selected_episodes=selected_episodes)
+    feature_episodes = set(next(iter(feats_all.values())).keys())
+
+    for sid in subjects:
+        fmri_dict = load_fmri(root_data_dir, sid)
+        fmri_episodes = set(fmri_dict.keys())
+        selected = sorted(feature_episodes & fmri_episodes)
+
+        features_dict = load_stimulus_features(
+            root_data_dir, modality="all", selected_episodes=selected)
+        fmri_dict = load_fmri(
+            root_data_dir, sid, friends_episodes=selected)
+
+        aligned_features, aligned_fmri = trim_and_concatenate_features(
+            features_dict, fmri_dict,
+            excluded_trs_start=excluded_trs_start,
+            excluded_trs_end=excluded_trs_end,
+            hrf_delay=hrf_delay)
+
+        pkl_path = os.path.join(cache_dir, f"sub{sid}_aligned.pkl")
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(pkl_path, "wb") as f:
+            pickle.dump((aligned_features, aligned_fmri), f)
+
+        dataset = SlidingWindowFMRIDataset(
+            list(zip(aligned_features, aligned_fmri)),
+            window_size=window_size,
+            stride=stride
+        )
+        datasets.append(dataset)
+        print(f"[INFO] Subject {sid}: {len(dataset)} samples.")
+
+    # Combine everything
+    merged_dataset = MultiSubjectDataset(datasets)
+    dataloader = DataLoader(
+        merged_dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        collate_fn=collate_fn_no_pad
+    )
+    print(f"[INFO] Total combined samples: {len(merged_dataset)}")
+    return dataloader

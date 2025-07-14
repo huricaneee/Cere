@@ -14,20 +14,15 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "numpy==1.26.4",
+    "numpy",
     "python-dotenv",
     "librosa",
-    "moviepy==1.0.3",
     "tqdm",
-    "wandb==0.20.1",
+    "wandb",
     "h5py",
     "pandas",
-    "opencv-python",
-    "torch==2.2.2",
-    "torchvision==0.17.2",
-    "pytorchvideo==0.1.5",
-    "transformers==4.38.2",
-    "sentence-transformers==2.5.1"
+    "torch==2.3.0",
+    "transformers==4.36.2"
 ]
 
 [project.urls]
