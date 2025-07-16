@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=fine_tune_transformer    # Your job name
-#SBATCH --time=15:00:00                   # 15 minutes
+#SBATCH --time=10:00:00                   # 15 minutes
 #SBATCH --cpus-per-task=1                 # CPU cores
 #SBATCH --mem=8G                          # RAM
 #SBATCH --gres=gpu:1                      # Request 1 GPU

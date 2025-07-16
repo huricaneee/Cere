@@ -16,9 +16,9 @@ class Config:
         nhead=1,
         nhid=10,
         nlayers=1,
-        dropout=0.4,
+        dropout=0.3,
         batch_size=128,
-        lr=1e-5,
+        lr=5e-5,
         num_epochs=5,
         device=None,
         window_size = 10,
@@ -133,3 +133,33 @@ class FMRITransformerModel(nn.Module):
             tgt = torch.cat([tgt, pred], dim=1)
 
         return torch.cat(outputs, dim=1)  # [1, seq_len, output_dim]
+
+
+
+class FMRIEncoderOnlyModel(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.input_projection = nn.Linear(config.input_dim, config.d_model)
+        self.pos_encoder = PositionalEncoding(config.d_model, config.dropout)
+        self.transformer_encoder = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(
+                d_model=config.d_model,
+                nhead=config.nhead,
+                dim_feedforward=config.nhid,
+                dropout=config.dropout,
+                batch_first=True
+            ),
+            num_layers=config.nlayers
+        )
+
+        self.regressor = nn.Linear(config.d_model, config.output_dim)  # acts as your "decoder classifier"
+
+    def forward(self, input_seq):
+        """
+        input_seq: [B, T, input_dim]
+        returns: [B, T, output_dim]
+        """
+        x = self.input_projection(input_seq)     # [B, T, d_model]
+        x = self.pos_encoder(x)                  # add positional encoding
+        encoded = self.transformer_encoder(x)    # [B, T, d_model]
+        return self.regressor(encoded)           # [B, T, output_dim]

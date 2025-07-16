@@ -1,6 +1,6 @@
 import torch
 import os
-from telepath.fmriTransformer.model import FMRITransformerModel, Config
+from telepath.fmriTransformer.model import FMRITransformerModel, Config, FMRIEncoderOnlyModel
 from telepath.fmriTransformer.train import train_one_epoch, evaluate
 from telepath.fmriTransformer.data_load_align import prepare_and_save_aligned_data
 from torch.utils.data import DataLoader
@@ -76,7 +76,8 @@ output_dim = example_fmri.shape[-1]
 
 # Initialize model
 config = Config(input_dim=input_dim, output_dim=output_dim, window_size= window_size, stride=stride)
-model = FMRITransformerModel(config).to(config.device)
+#model = FMRITransformerModel(config).to(config.device)
+model = FMRIEncoderOnlyModel(config).to(config.device)
 optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
 
 # Initialize WandB
