@@ -12,16 +12,16 @@ class Config:
         self,
         input_dim=520,
         output_dim=1000,
-        d_model=400,
+        d_model=1000,
         nhead=1,
         nhid=10,
         nlayers=1,
-        dropout=0.3,
-        batch_size=128,
-        lr=5e-5,
+        dropout=0,
+        batch_size=256,
+        lr=1e-4,
         num_epochs=5,
         device=None,
-        window_size = 10,
+        window_size = 7,
         stride = 5
     ):
         self.input_dim = input_dim
@@ -152,7 +152,7 @@ class FMRIEncoderOnlyModel(nn.Module):
             num_layers=config.nlayers
         )
 
-        self.regressor = nn.Linear(config.d_model, config.output_dim)  # acts as your "decoder classifier"
+        self.regressor = nn.Linear(config.d_model, config.output_dim)  # Single linear regression layer as decoder
 
     def forward(self, input_seq):
         """
