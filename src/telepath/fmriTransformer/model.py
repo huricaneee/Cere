@@ -82,23 +82,53 @@ class FMRITransformerModel(nn.Module):
             batch_first=True
         )
 
+    # def forward(
+    #     self,
+    #     input_seq,            # [B, T, input_dim]
+    #     fmri_seq              # [B, T, output_dim]
+    # ):
+    #     input_seq = self.pos_encoder(self.input_projection(input_seq))  # [B, T, d_model]
+    #     fmri_seq = self.pos_encoder(self.output_projection(fmri_seq))   # [B, T, d_model]
+
+    #     T = fmri_seq.size(1)
+    #     causal_mask = torch.triu(torch.ones(T, T, dtype=torch.bool, device=input_seq.device), diagonal=1)
+
+    #     out = self.transformer(
+    #         src=input_seq,
+    #         tgt=fmri_seq,
+    #         tgt_mask=causal_mask
+    #     )
+    #     return self.regressor(out)  # [B, T, output_dim]
+
     def forward(
         self,
-        input_seq,            # [B, T, input_dim]
-        fmri_seq              # [B, T, output_dim]
+        input_seq,    # [B, T, input_dim]
+        fmri_seq      # [B, T, output_dim] — this is the target
     ):
+        # Project and encode the input sequence
         input_seq = self.pos_encoder(self.input_projection(input_seq))  # [B, T, d_model]
-        fmri_seq = self.pos_encoder(self.output_projection(fmri_seq))   # [B, T, d_model]
 
+        # Create decoder input by shifting fmri_seq right and adding start token
+        start_token = torch.zeros_like(fmri_seq[:, :1, :])  # [B, 1, output_dim]
+        decoder_input = torch.cat([start_token, fmri_seq[:, :-1, :]], dim=1)  # [B, T, output_dim]
+        decoder_input = self.pos_encoder(self.output_projection(decoder_input))  # [B, T, d_model]
+
+        # Create causal mask
         T = fmri_seq.size(1)
-        causal_mask = torch.triu(torch.ones(T, T, dtype=torch.bool, device=input_seq.device), diagonal=1)
-
-        out = self.transformer(
-            src=input_seq,
-            tgt=fmri_seq,
-            tgt_mask=causal_mask
+        causal_mask = torch.triu(
+            torch.ones((T, T), dtype=torch.bool, device=input_seq.device), diagonal=1
         )
+
+        # Transformer forward
+        out = self.transformer(
+            src=input_seq,           # [B, T, d_model]
+            tgt=decoder_input,       # shifted + encoded
+            tgt_mask=causal_mask     # ensure causality
+        )  # [B, T, d_model]
+
+        # Project to output space
         return self.regressor(out)  # [B, T, output_dim]
+
 
     @torch.no_grad()
     def autoregressive_inference(self, input_seq, seq_len, start_token=None):
