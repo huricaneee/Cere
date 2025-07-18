@@ -12,13 +12,13 @@ class Config:
         self,
         input_dim=520,
         output_dim=1000,
-        d_model=1000,
-        nhead=1,
-        nhid=10,
+        d_model=256,
+        nhead=4,
+        nhid=512,
         nlayers=1,
-        dropout=0,
+        dropout=0.3,
         batch_size=256,
-        lr=1e-4,
+        lr=5e-4,
         num_epochs=5,
         device=None,
         window_size = 7,
@@ -71,6 +71,7 @@ class FMRITransformerModel(nn.Module):
         self.pos_encoder = PositionalEncoding(config.d_model, config.dropout)
 
         self.output_dim = config.output_dim
+        self.start_token = nn.Parameter(torch.randn(1, 1, config.output_dim))  # Learnable start token
 
         self.transformer = nn.Transformer(
             d_model=config.d_model,
@@ -108,10 +109,10 @@ class FMRITransformerModel(nn.Module):
         # Project and encode the input sequence
         input_seq = self.pos_encoder(self.input_projection(input_seq))  # [B, T, d_model]
 
-        # Create decoder input by shifting fmri_seq right and adding start token
-        start_token = torch.zeros_like(fmri_seq[:, :1, :])  # [B, 1, output_dim]
-        decoder_input = torch.cat([start_token, fmri_seq[:, :-1, :]], dim=1)  # [B, T, output_dim]
-        decoder_input = self.pos_encoder(self.output_projection(decoder_input))  # [B, T, d_model]
+        B, T, _ = fmri_seq.shape
+        start_token = self.start_token.expand(B, 1, -1)  # [B, 1, output_dim]
+        decoder_input = torch.cat([start_token, fmri_seq[:, :-1, :]], dim=1)
+        decoder_input = self.pos_encoder(self.output_projection(decoder_input))
 
         # Create causal mask
         T = fmri_seq.size(1)
@@ -140,10 +141,16 @@ class FMRITransformerModel(nn.Module):
         input_seq = self.pos_encoder(self.input_projection(input_seq))  # [1, T_in, d_model]
         memory = self.transformer.encoder(input_seq)
 
-        if start_token is None:
-            start_token = torch.zeros(self.output_dim, device=input_seq.device)  # Dummy consistent token
+        # if start_token is None:
+        #     start_token = torch.zeros(self.output_dim, device=input_seq.device)  # Dummy consistent token
 
-        tgt = start_token.unsqueeze(0).unsqueeze(0)  # [1, 1, output_dim]
+        # tgt = start_token.unsqueeze(0).unsqueeze(0)  # [1, 1, output_dim]
+        # outputs = []
+
+        if start_token is None:
+            start_token = self.start_token.expand(1, 1, -1)  # [1, 1, output_dim]
+
+        tgt = start_token.clone()  # [1, 1, output_dim]
         outputs = []
 
         for t in range(seq_len):

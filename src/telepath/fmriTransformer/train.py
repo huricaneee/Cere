@@ -29,8 +29,8 @@ def train_one_epoch(model, dataloader, optimizer, device, epoch):
         stim, fmri = stim.to(device), fmri.to(device)
 
         optimizer.zero_grad()
-        #output = model(input_seq=stim, fmri_seq=fmri)
-        output = model(input_seq=stim)
+        output = model(input_seq=stim, fmri_seq=fmri)
+        #output = model(input_seq=stim)
 
         loss = nn.functional.mse_loss(output, fmri)
         loss.backward()
@@ -70,17 +70,16 @@ def evaluate(model, dataloader, device, epoch):
         stim, fmri = stim.to(device), fmri.to(device)
         batch_size = stim.shape[0]
 
-        output = model(input_seq=stim) # for encoder-only models, no fmri_seq needed
+        #output = model(input_seq=stim) # for encoder-only models, no fmri_seq needed
 
         for i in range(batch_size):
-            # seq_len = stim[i].shape[0]
-            # pred = model.autoregressive_inference(
-            #     input_seq=stim[i:i+1],
-            #     seq_len=seq_len,
-            #     start_token=fmri[i, 0]
-            # )
-            # pred = pred.squeeze(0)
-            pred = output[i]
+            seq_len = stim[i].shape[0]
+            pred = model.autoregressive_inference(
+                input_seq=stim[i:i+1],
+                seq_len=seq_len
+            )
+            pred = pred.squeeze(0)
+            #pred = output[i]
             truth = fmri[i]
 
             total_pearson += compute_encoding_accuracy(truth, pred)
